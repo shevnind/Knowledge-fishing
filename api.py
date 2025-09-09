@@ -6,32 +6,12 @@ from fastapi import FastAPI, Request, Response, HTTPException, status, Depends
 from pydantic import BaseModel
 from typing import Optional
 
+from models.user import User
+from models.fish import Fish
+from models.pond import Pond
+from models.fishing_session import FishingSession
+
 app = FastAPI(name="Knowledge Fishing API", version="0.1.0")
-
-
-class Fish(BaseModel):
-    id: str
-    pond_id: str
-    question: str
-    answer: str
-    interval: int = 0
-    repetitions: int = 0
-    ease_factor: float = 2.5
-    next_review_date: datetime
-    created_at: datetime
-    updated_at: datetime
-    depth_level: int = 1
-    status: str = 'ready'
-
-
-class Pond(BaseModel):
-    id: str
-    user_id: str
-    name: str
-    description: str
-    topic: str
-    created_at: datetime
-    updated_at: datetime
 
 
 class PondCreate(BaseModel):
@@ -45,20 +25,10 @@ class FishCreate(BaseModel):
     answer: str
 
 
-class FishingSession(BaseModel):
-    id: str
-    pond_id: str
-    fish_id: str
-
-
-class User(BaseModel):
-    id: str
-    cur_fishing_session_id: str = "-1"
-
-
 last_user_id = 0
 last_pond_id = 0
 last_fish_id = 0
+
 last_fishing_session_id = 0
 token_to_user_id = dict()
 user_id_to_user = dict()
@@ -154,8 +124,10 @@ def start(request: Request, response: Response):
     if not token:
         token = secrets.token_hex(32)
         last_user_id += 1
-        user_id_to_user[str(last_user_id)] = User(id=str(last_user_id))  # db
-        token_to_user_id[token] = str(last_user_id)  # db
+        new_user = User()
+        print("new_id =", new_user.id)
+        user_id_to_user[new_user.id] = new_user  # db
+        token_to_user_id[token] = new_user.id  # db
         response.set_cookie(
             key='access_token',
             value=token,

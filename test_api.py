@@ -232,7 +232,7 @@ class TestClient:
 
     def set_token(self, token):
         """Установить другой токен для эмуляции другого пользователя"""
-        self.session.cookies.clear()
+        self.session.cookies.clear()    
         self.session.cookies.set("access_token", token)
 
 
