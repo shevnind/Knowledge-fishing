@@ -1,11 +1,16 @@
 import uuid
 
+from typing import Optional, TYPE_CHECKING
 from datetime import datetime
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Relationship
+
+if TYPE_CHECKING:
+    from models.pond import Pond
+
 
 class Fish(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    pond_id: str = Field()
+    pond_id: str = Field(foreign_key='pond.id')
     question: str = Field(max_length=1024)
     answer: str = Field(max_length=1024)
     interval: int = Field(default=0)
@@ -17,3 +22,4 @@ class Fish(SQLModel, table=True):
     depth_level: int = Field(default=1)
     status: str = Field(default='ready')
 
+    pond: Optional["Pond"] = Relationship(back_populates='fishes')

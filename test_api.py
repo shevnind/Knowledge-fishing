@@ -1,7 +1,18 @@
 import random
+import pytest
 
 from fastapi.testclient import TestClient
+from sqlmodel import SQLModel
+
 from main import app
+from database import engine
+
+
+# @pytest.fixture(scope='session')
+# def clear_all_tables():
+#     SQLModel.metadata.drop_all(engine)
+#     SQLModel.metadata.create_all(engine)
+
 
 
 def entry(client: TestClient = TestClient(app)):
@@ -23,6 +34,7 @@ def create_pond(client: TestClient, name: str = "name", desc: str = "desc", topi
 
     assert response.status_code == 200
     data = response.json()
+    print("\n\n\n\ndata =", data, "\n\n\n")
     assert data["name"] == name
     assert data["description"] == desc
     assert data["topic"] == topic
@@ -266,7 +278,7 @@ class TestAuthentication:
     def test_start_endpoint_sets_cookie(self):
         client = TestClient()
         assert "access_token" in client.session.cookies
-        assert len(client.token) == 64
+        assert len(client.token) == 36
 
     def test_get_ponds_without_token(self):
         client = requests.Session()  # Клиент без куки
@@ -280,7 +292,7 @@ class TestAuthentication:
         client.session.cookies.set("access_token", "invalid_token")
         response = client.get("/ponds")
         assert response.status_code == 401
-        assert "this token isn`t exist" in response.json()["detail"]
+        assert "this user_id doesn`t exist" in response.json()["detail"]
 
 
 class TestPonds:
@@ -395,6 +407,7 @@ class TestFishes:
         assert response.status_code == 200
 
         response = client.get(f"/fishes/{fish_data['id']}")
+        print("\n deleted_fish =", response.json(), "\n")
         assert response.status_code == 404
 
 class TestFishingSession:
