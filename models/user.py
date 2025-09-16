@@ -14,6 +14,7 @@ class User(SQLModel, table=True):
     #__tablename__ = "users"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     cur_fishing_session_id: str = Field(default="-1", foreign_key='fishing_session.id')
+    admin: bool = Field(default=False)
 
     ponds: List["Pond"] = Relationship(back_populates='user')
     fishing_session: Optional["FishingSession"] = Relationship(back_populates='user')

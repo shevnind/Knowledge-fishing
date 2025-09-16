@@ -41,6 +41,27 @@ def create_pond(client: TestClient, name: str = "name", desc: str = "desc", topi
     return data
 
 
+def create_pond_with_ai(client: TestClient, ai_request: str, ai_cnt: int, name: str = "name", desc: str = "desc", topic: str = "topic"):
+    response = client.post(
+        "/ponds",
+        json={
+            "name": name,
+            "description": desc,
+            "topic": topic,
+            "ai_request": ai_request,
+            "ai_cnt": ai_cnt
+        }
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    print("\n\n\n\ndata =", data, "\n\n\n")
+    assert data["name"] == name
+    assert data["description"] == desc
+    assert data["topic"] == topic
+    return data
+
+
 def get_ponds(client: TestClient):
     response = client.get("/ponds")
     assert response.status_code == 200
@@ -93,12 +114,40 @@ def test_root():
     entry()
 
 
+def test_admin():
+    client = entry()
+    response = client.post("/users", json={"password": "normis"})
+    assert response.status_code == 400
+
+
+def test_get_fish():
+    client = entry()
+    response = client.post("/users", json={"password": "ne normis"})
+    assert response.status_code == 200
+
+    client2 = entry()
+    response = client.post("/users", json={"password": "normis"})
+    assert response.status_code == 400
+
+
 def test_create_pond():
     client = entry()
     ponds = set()
     for i in range(100):
         ponds.add(create_pond(client)["id"])
         assert len(ponds) == i + 1
+
+
+def test_create_pond_with_ai():
+    client = entry()
+    response = client.post("/users", json={"password": "ne normis"})
+    assert response.status_code == 200
+
+    pond = create_pond_with_ai(client, "Я учусь оценивать данные о компаниях. Напиши мне вопросы и ответы в формате мультипликатор, расшифровка + что означает.", 20)
+    fishes = get_fishes(client, pond["id"])
+    print(fishes)
+    assert len(fishes) == 20
+    assert response.status_code == 400
 
 
 def test_get_ponds():

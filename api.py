@@ -1,5 +1,7 @@
+import json
 import secrets
 import random
+import hashlib
 
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, Response, HTTPException, status, Depends
@@ -12,26 +14,25 @@ from models.fish import Fish
 from models.pond import Pond
 from models.fishing_session import FishingSession
 from database import engine
+from ai import ai_chatbot
 
 
 app = FastAPI(name="Knowledge Fishing API", version="0.1.0")
+
+hash_password = "e419d9ddeb9c3c1f340d5498acad9abb1ae7a037"
 
 
 class PondCreate(BaseModel):
     name: str
     description: str
     topic: str
+    ai_request: Optional[str]
+    ai_cnt: int = 20
 
 
 class FishCreate(BaseModel):
     question: str
     answer: str
-
-
-#'''
-last_fishing_session_id = 0
-fishing_session_id_to_fishing_session = dict()
-#'''
 
 
 def get_user_from_token(request: Request) -> User:
@@ -119,6 +120,21 @@ def get_fishes_by_pond_id(pond_id: str, fish_status: Optional[str] = None,
     return fishes
 
 
+def correct(s: str):
+    st = 0
+    while st < len(s) and s[st] != '{':
+        st += 1
+
+    fin = len(s) - 1
+    while fin >= 0 and s[fin] != '}':
+        fin -= 1
+
+    if st > fin:
+        return ''
+    else:
+        return s[st:fin + 1]
+
+
 @app.get("/")
 def start(request: Request, response: Response):
     user_id = request.cookies.get('access_token')
@@ -137,6 +153,25 @@ def start(request: Request, response: Response):
             )
 
     # TODO: return EGOR`S files
+
+
+class Password(BaseModel):
+    password: str
+
+
+@app.post("/users")
+def start_to_be_admin(p: Password, user: User = Depends(get_user_from_token)):
+    h = hashlib.sha1(p.password.encode('utf-8'))
+    if hash_password == h.hexdigest():
+        with Session(engine) as session:
+            user = session.get(User, user.id)
+            user.admin = True
+            session.commit()
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='incorrect password'
+        )
 
 
 @app.get("/ponds", response_model=list[Pond])
@@ -163,6 +198,45 @@ def create_pond(cr_pond: PondCreate, cur_user: User = Depends(get_user_from_toke
         session.add(new_pond)
         session.commit()
         session.refresh(new_pond)
+
+    print(cr_pond.ai_request, cur_user.admin)
+
+    if cr_pond.ai_request is not None and cur_user.admin:
+        request = 'Верни только пары вопрос-ответ без форматирования и другого текста. ' + cr_pond.ai_request + " Верни данные в следующем формате: набор из " + f'{cr_pond.ai_cnt}' + 'пар строк в формате {"question1": "answer1", "question2": "answer2", ...}. Длина вопросов и ответов не должна превышать 1000 символов. Верни только вопросы и ответы без форматирования и другого текста'
+        print("\nrequest =", request)
+        response = ai_chatbot.chat.completions.create(
+            model="deepseek/deepseek-chat-v3-0324:free",
+            messages=[
+                {"role": "user", "content": request},
+            ],
+        )
+        resp = response.choices[0].message.content
+        resp = correct(resp)
+        print("first answer =", resp, "\n", type(resp))
+
+        cnt = 0
+        while len(resp) == 0 and cnt < 2:
+            response = ai_chatbot.chat.completions.create(
+                model="deepseek/deepseek-chat-v3-0324:free",
+                messages=[
+                    {"role": "user", "content": request},
+                ],
+            )
+            resp = response.choices[0].message.content
+            resp = correct(resp)
+            print("answer =", resp, "\n")
+            cnt += 1
+
+        if len(resp) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail='can`t get response from ai chatbot'
+            )
+        
+        new_fishes = json.loads(resp)
+
+        for fish in new_fishes.items():
+            create_fish(FishCreate(question=fish[0], answer=fish[1]), new_pond)
 
     return new_pond
 
