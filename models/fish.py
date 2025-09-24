@@ -19,7 +19,7 @@ class Fish(SQLModel, table=True):
     next_review_date: datetime = Field(default_factory=datetime.now)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now})
-    depth_level: int = Field(default=1)
+    depth_level: int = Field(default=0)
     status: str = Field(default='ready')
 
     pond: Optional["Pond"] = Relationship(back_populates='fishes')

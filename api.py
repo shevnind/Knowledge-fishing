@@ -1,13 +1,17 @@
 import json
-import secrets
 import random
 import hashlib
+import os
 
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, Response, HTTPException, status, Depends
-from pydantic import BaseModel
-from typing import Optional, TYPE_CHECKING
+from pydantic import BaseModel, Field
+from typing import Dict, List, Optional, TYPE_CHECKING
 from sqlmodel import Session, select
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
 
 from models.user import User
 from models.fish import Fish
@@ -19,6 +23,16 @@ from ai import ai_chatbot
 
 app = FastAPI(name="Knowledge Fishing API", version="0.1.0")
 
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["http://localhost:3000"],  # Укажите адрес вашего фронтенда
+#     allow_credentials=True,
+#     allow_methods=["*"],  # Разрешить все методы
+#     allow_headers=["*"],  # Разрешить все заголовки
+# )
+
+# app.mount("/static", StaticFiles(directory="static"), name="static")
+
 hash_password = "e419d9ddeb9c3c1f340d5498acad9abb1ae7a037"
 
 
@@ -26,13 +40,14 @@ class PondCreate(BaseModel):
     name: str
     description: str
     topic: str
-    ai_request: Optional[str]
-    ai_cnt: int = 20
+    ai_request: Optional[str] = Field(default=None)
+    ai_cnt: Optional[int] = Field(default=20)
 
 
 class FishCreate(BaseModel):
     question: str
     answer: str
+    depth_level: int
 
 
 def get_user_from_token(request: Request) -> User:
@@ -149,10 +164,11 @@ def start(request: Request, response: Response):
             response.set_cookie(
                 key='access_token',
                 value=new_user.id,
-                httponly=True
+                httponly=True,
+                max_age=100 * 365 * 24 * 60 * 60
             )
 
-    # TODO: return EGOR`S files
+    return FileResponse("build/index.html")
 
 
 class Password(BaseModel):
@@ -181,6 +197,18 @@ def get_ponds(cur_user: User = Depends(get_user_from_token)):
         session.refresh(cur_user, attribute_names=['ponds'])
     
     return cur_user.ponds
+
+
+@app.put("/ponds/{pond_id}", response_model=Pond)
+def change_pond(cr_pond: PondCreate, pond: Pond = Depends(get_pond_with_check_rights)):
+    with Session(engine) as session:
+        pond = session.get(Pond, pond.id)
+        pond.name = cr_pond.name
+        pond.description = cr_pond.description
+        session.commit()
+        session.refresh(pond)
+
+    return pond
 
 
 @app.post("/ponds", response_model=Pond)
@@ -264,12 +292,13 @@ def get_fishes(fish_status: Optional[str] = None, depth_level: Optional[int] = N
     return get_fishes_by_pond_id(pond.id, fish_status, depth_level)
 
 
-@app.post("/ponds/{pond_id}/fishes", response_model=Fish)
+@app.post("/ponds/{pond_id}/fish", response_model=Fish)
 def create_fish(fish_data: FishCreate, pond: Pond = Depends(get_pond_with_check_rights)):
     new_fish = Fish(
         pond_id=str(pond.id),
         question=fish_data.question,
         answer=fish_data.answer,
+        depth_level=fish_data.depth_level,
         next_review_date=datetime.now(),
         created_at=datetime.now(),
         updated_at=datetime.now()
@@ -282,13 +311,27 @@ def create_fish(fish_data: FishCreate, pond: Pond = Depends(get_pond_with_check_
     return new_fish
 
 
+class FishesCreate(BaseModel):
+    fishes: Dict[str, str]
+
+
+@app.post("/ponds/{pond_id}/fishes", response_model=List[Fish])
+def create_fishes(fishes_data: Dict[str, str], pond: Pond = Depends(get_pond_with_check_rights)):
+    created_fishes = []
+    for fish_data in fishes_data.items():
+        fish_data1 = FishCreate(question=fish_data[0], answer=fish_data[1], depth_level=0)
+        created_fishes.append(create_fish(fish_data1, pond))
+    
+    return created_fishes
+
+
 @app.get("/ponds/{pond_id}/start-fishing", response_model=Fish)
 def get_fish_from_pond(pond: Pond = Depends(get_pond_with_check_rights)):
     fishes = get_fishes_by_pond_id(pond.id, fish_status='ready')
     if len(fishes) == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="no one fish into this pond"
+            detail="no one ready fish into this pond"
         )
     fish = random.choice(fishes)
 
@@ -307,6 +350,10 @@ def get_fish_from_pond(pond: Pond = Depends(get_pond_with_check_rights)):
         session.commit()
 
     return fish
+
+
+class CaughtFish(BaseModel):
+    quality: int
 
 
 @app.put("/fishes/{fish_id}/caught", response_model=Fish)
@@ -387,7 +434,7 @@ def delete_fish(fish: Fish = Depends(get_fish_with_check_rights)):
         session.commit()
 
 
-@app.get("/fishing_sessions", response_model=FishingSession)
+@app.get("/fishing_sessions/", response_model=FishingSession)
 def get_cur_fishing_session(cur_user: User = Depends(get_user_from_token)):
     with Session(engine) as session:
         cur_user = session.get(User, cur_user.id)
@@ -398,3 +445,28 @@ def get_cur_fishing_session(cur_user: User = Depends(get_user_from_token)):
                 detail='no fishing session is running now'
             )
         return cur_user.fishing_session
+    
+
+
+BASE_DIR = Path(__file__).parent.resolve()
+BUILD_DIR = BASE_DIR / "build"
+
+@app.get("/{path:path}")
+async def serve_static_files(path: str):
+    # Игнорируем API маршруты
+    if path.startswith(('api/', 'ponds/', 'fishes/', 'fishing_sessions/', 'users/')):
+        raise HTTPException(status_code=404, detail="API endpoint not found")
+    
+    # Формируем полный путь к файлу
+    static_file = BUILD_DIR / path
+    
+    print(f"Looking for file: {static_file}")  # Для отладки
+    print(f"File exists: {static_file.exists()}")  # Для отладки
+    print(f"Is file: {static_file.is_file()}")  # Для отладки
+    
+    # Проверяем, существует ли файл
+    if static_file.exists() and static_file.is_file():
+        return FileResponse(static_file)
+    
+    # Для React Router - возвращаем index.html
+    return FileResponse(BUILD_DIR / "index.html")
