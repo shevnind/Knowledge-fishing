@@ -23,17 +23,10 @@ from ai import ai_chatbot
 
 app = FastAPI(name="Knowledge Fishing API", version="0.1.0")
 
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["http://localhost:3000"],  # Укажите адрес вашего фронтенда
-#     allow_credentials=True,
-#     allow_methods=["*"],  # Разрешить все методы
-#     allow_headers=["*"],  # Разрешить все заголовки
-# )
-
-# app.mount("/static", StaticFiles(directory="static"), name="static")
-
 hash_password = "e419d9ddeb9c3c1f340d5498acad9abb1ae7a037"
+
+
+BUILD_DIR = "~/frontend/build"
 
 
 class PondCreate(BaseModel):
@@ -168,7 +161,7 @@ def start(request: Request, response: Response):
                 max_age=100 * 365 * 24 * 60 * 60
             )
 
-    return FileResponse("build/index.html")
+    return FileResponse(BUILD_DIR / "index.html")
 
 
 class Password(BaseModel):
@@ -447,24 +440,12 @@ def get_cur_fishing_session(cur_user: User = Depends(get_user_from_token)):
         return cur_user.fishing_session
     
 
-
-BASE_DIR = Path(__file__).parent.resolve()
-BUILD_DIR = BASE_DIR / "build"
-
 @app.get("/{path:path}")
 async def serve_static_files(path: str):
-    # Игнорируем API маршруты
     if path.startswith(('api/', 'ponds/', 'fishes/', 'fishing_sessions/', 'users/')):
         raise HTTPException(status_code=404, detail="API endpoint not found")
     
-    # Формируем полный путь к файлу
     static_file = BUILD_DIR / path
-    
-    print(f"Looking for file: {static_file}")  # Для отладки
-    print(f"File exists: {static_file.exists()}")  # Для отладки
-    print(f"Is file: {static_file.is_file()}")  # Для отладки
-    
-    # Проверяем, существует ли файл
     if static_file.exists() and static_file.is_file():
         return FileResponse(static_file)
     
