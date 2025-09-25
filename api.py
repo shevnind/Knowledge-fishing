@@ -26,7 +26,8 @@ app = FastAPI(name="Knowledge Fishing API", version="0.1.0")
 hash_password = "e419d9ddeb9c3c1f340d5498acad9abb1ae7a037"
 
 
-BUILD_DIR = "~/frontend/build"
+BASE_DIR = Path(__file__).parent.resolve()
+BUILD_DIR = BASE_DIR / "build"
 
 
 class PondCreate(BaseModel):
