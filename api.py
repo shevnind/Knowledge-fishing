@@ -147,6 +147,7 @@ def correct(s: str):
 @app.get("/")
 def start(request: Request, response: Response):
     user_id = request.cookies.get('access_token')
+    # print("\nuser_id =", user_id, '\n')
     if not user_id:
 
         with Session(engine) as session:
@@ -155,12 +156,14 @@ def start(request: Request, response: Response):
             session.add(new_user)
             session.commit()
 
+            response = Response(content=open(BUILD_DIR / "index.html").read())
             response.set_cookie(
                 key='access_token',
                 value=new_user.id,
                 httponly=True,
                 max_age=100 * 365 * 24 * 60 * 60
             )
+            return response
 
     return FileResponse(BUILD_DIR / "index.html")
 
