@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 
 db_path = os.getenv('DATABASE_PATH', '/data/database.db')
-sqlite_url = f'sqlite:///{db_path}'
+sqlite_url = f'sqlite:///../data/database.py'
 engine = create_engine(sqlite_url, echo=True)
 
 def create_table():
