@@ -51,6 +51,5 @@ ujson==5.11.0
 urllib3_secure_extra==0.1.0
 uvicorn==0.37.0
 uvloop==0.21.0
-xmlrpclib==1.0.1
 zope==5.13
 zstandard==0.25.0
