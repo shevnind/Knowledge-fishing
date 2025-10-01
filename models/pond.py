@@ -1,4 +1,5 @@
 import uuid
+import json
 
 from typing import Optional, TYPE_CHECKING, List
 from datetime import datetime, timedelta
@@ -22,8 +23,15 @@ class Pond(SQLModel, table=True):
     topic: str = Field(max_length=128)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={"onupdate" : datetime.now})
-    interval: List[timedelta] = Field(default=default_pond_intervals)
+    interval: str = Field(default_factory=lambda: json.dumps([td.total_seconds() for td in default_pond_intervals]))
 
     user: Optional["User"] = Relationship(back_populates='ponds')
     fishes: List["Fish"] = Relationship(back_populates='pond')
+
+    def get_intervals(self) -> List[timedelta]:
+        seconds_list = json.loads(self.intervals)
+        return [timedelta(seconds=seconds) for seconds in seconds_list]
+    
+    def set_intervals(self, value: List[timedelta]):    
+        self.intervals = json.dumps([td.total_seconds() for td in value])
 

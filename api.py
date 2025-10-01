@@ -385,7 +385,7 @@ def update_caught_fish(quality: int, fish: Fish = Depends(get_fish_with_check_ri
             fish.depth_level = 0
         elif fish.depth_level > 3:
             fish.depth_level = 3
-        fish.next_review_date = datetime.now() + timedelta(hours=pond.interval[fish.depth_level])
+        fish.next_review_date = datetime.now() + pond.get_interval()[fish.depth_level]
 
         # if quality >= 3:
         #     if fish.repetitions == 0:
