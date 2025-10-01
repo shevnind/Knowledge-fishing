@@ -1,7 +1,7 @@
 import uuid
 
 from typing import Optional, TYPE_CHECKING, List
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlmodel import SQLModel, Field, ForeignKey, Relationship
 
 if TYPE_CHECKING:
@@ -9,6 +9,9 @@ if TYPE_CHECKING:
 
 if TYPE_CHECKING:
     from models.fish import Fish
+
+
+default_pond_intervals = [timedelta(hours=1), timedelta(days=1), timedelta(days=7), timedelta(days=30)]
 
 
 class Pond(SQLModel, table=True):
@@ -19,6 +22,7 @@ class Pond(SQLModel, table=True):
     topic: str = Field(max_length=128)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={"onupdate" : datetime.now})
+    interval: List[timedelta] = Field(default=default_pond_intervals)
 
     user: Optional["User"] = Relationship(back_populates='ponds')
     fishes: List["Fish"] = Relationship(back_populates='pond')

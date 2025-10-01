@@ -379,27 +379,35 @@ def update_caught_fish(quality: int, fish: Fish = Depends(get_fish_with_check_ri
         session.delete(fishing_session)
         session.commit()
 
-        if quality >= 3:
-            if fish.repetitions == 0:
-                fish.interval = 1
-            elif fish.repetitions == 1:
-                fish.interval = 6
-            else:
-                fish.interval = round(fish.interval * fish.ease_factor)
-            fish.repetitions += 1
-            fish.ease_factor = max(1.3, fish.ease_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
-        else:
-            fish.repetitions = 0
-            fish.interval = 1
-            fish.ease_factor = max(1.3, fish.ease_factor - 0.2)
-
-        fish.next_review_date = datetime.now() + timedelta(days=fish.interval)
-        if fish.repetitions == 0:
-            fish.depth_level = 1
-        elif fish.repetitions < 4:
-            fish.depth_level = 2
-        else:
+        fish.repetitions += 1
+        fish.depth_level += quality
+        if fish.depth_level < 0:
+            fish.depth_level = 0
+        elif fish.depth_level > 3:
             fish.depth_level = 3
+        fish.next_review_date = datetime.now() + timedelta(hours=pond.interval[fish.depth_level])
+
+        # if quality >= 3:
+        #     if fish.repetitions == 0:
+        #         fish.interval = 1
+        #     elif fish.repetitions == 1:
+        #         fish.interval = 6
+        #     else:
+        #         fish.interval = round(fish.interval * fish.ease_factor)
+        #     fish.repetitions += 1
+        #     fish.ease_factor = max(1.3, fish.ease_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
+        # else:
+        #     fish.repetitions = 0
+        #     fish.interval = 1
+        #     fish.ease_factor = max(1.3, fish.ease_factor - 0.2)
+
+        # fish.next_review_date = datetime.now() + timedelta(days=fish.interval)
+        # if fish.repetitions == 0:
+        #     fish.depth_level = 1
+        # elif fish.repetitions < 4:
+        #     fish.depth_level = 2
+        # else:
+        #     fish.depth_level = 3
 
         session.commit()
         session.refresh(fish)
