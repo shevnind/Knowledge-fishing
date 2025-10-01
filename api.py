@@ -30,10 +30,17 @@ BASE_DIR = Path(__file__).parent.resolve()
 BUILD_DIR = BASE_DIR / "build"
 
 
+class Interval(BaseModel):
+    days: int
+    hours: int
+    minutes: int
+
+
 class PondCreate(BaseModel):
     name: str
     description: str
     topic: str
+    intervals: List[Interval]
     ai_request: Optional[str] = Field(default=None)
     ai_cnt: Optional[int] = Field(default=20)
 
@@ -101,28 +108,18 @@ def get_fish_with_check_rights(fish_id: str, cur_user: User = Depends(get_user_f
     return fish
 
 
-def update(fish: Fish):
-    with Session(engine) as session:
-        fish = session.get(Fish, fish.id)
-        if fish.next_review_date <= datetime.now():
-            fish.status = 'ready'
-        else:
-            fish.status = 'not ready'
-        session.commit()
-        session.refresh(fish)
-    
-    return fish
-
-
-def get_fishes_by_pond_id(pond_id: str, fish_status: Optional[str] = None,
+def get_fishes_by_pond_id(pond_id: str, is_ready: Optional[bool] = None,
                           depth_level: Optional[int] = None) -> list[Fish]:
     with Session(engine) as session:
         fish_select = select(Fish)
         fish_select = fish_select.where(Fish.pond_id == pond_id)
-        if fish_status is not None:
-            fish_select = fish_select.where(Fish.status == fish_status)
+        if is_ready is not None:
+            if is_ready:
+                fish_select = fish_select.where(Fish.next_review_date <= datetime.now())
+            else:
+                fish_select = fish_select.where(Fish.next_review_date > datetime.now())
         if depth_level is not None:
-            fish_select = fish_select.where(Fish.next_review_date <= datetime.now())
+            fish_select = fish_select.where(Fish.depth_level == depth_level)
         result = session.execute(fish_select)
         fishes = result.scalars().all()
 
@@ -218,6 +215,9 @@ def create_pond(cr_pond: PondCreate, cur_user: User = Depends(get_user_from_toke
         created_at=datetime.now(),
         updated_at=datetime.now()
     )
+
+    intervals = [timedelta(days=i.days, hours=i.hours, minutes=i.minutes) for i in cr_pond.intervals]
+    new_pond.set_intervals(intervals)
 
     with Session(engine) as session:
         session.add(new_pond)
@@ -324,7 +324,7 @@ def create_fishes(fishes_data: Dict[str, str], pond: Pond = Depends(get_pond_wit
 
 @app.get("/ponds/{pond_id}/start-fishing", response_model=Fish)
 def get_fish_from_pond(pond: Pond = Depends(get_pond_with_check_rights)):
-    fishes = get_fishes_by_pond_id(pond.id, fish_status='ready')
+    fishes = get_fishes_by_pond_id(pond.id, is_ready=True)
     if len(fishes) == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -385,7 +385,8 @@ def update_caught_fish(quality: int, fish: Fish = Depends(get_fish_with_check_ri
             fish.depth_level = 0
         elif fish.depth_level > 3:
             fish.depth_level = 3
-        fish.next_review_date = datetime.now() + pond.get_interval()[fish.depth_level]
+        print('\n', datetime.now(), pond.get_intervals()[fish.depth_level], '\n')
+        fish.next_review_date = datetime.now() + pond.get_intervals()[fish.depth_level]
 
         # if quality >= 3:
         #     if fish.repetitions == 0:
@@ -412,12 +413,12 @@ def update_caught_fish(quality: int, fish: Fish = Depends(get_fish_with_check_ri
         session.commit()
         session.refresh(fish)
 
-    return update(fish)
+    return fish
 
 
 @app.get("/fishes/{fish_id}", response_model=Fish)
 def get_fish_by_id(fish: Fish = Depends(get_fish_with_check_rights)):
-    return update(fish)
+    return fish
 
 
 @app.put("/fishes/{fish_id}", response_model=Fish)
@@ -429,7 +430,7 @@ def change_fish(fish_data: FishCreate, fish: Fish = Depends(get_fish_with_check_
         session.commit()
         session.refresh(fish)
 
-    return update(fish)
+    return fish
 
 
 @app.delete("/fishes/{fish_id}")

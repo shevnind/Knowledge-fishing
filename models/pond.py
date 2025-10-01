@@ -23,7 +23,7 @@ class Pond(SQLModel, table=True):
     topic: str = Field(max_length=128)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={"onupdate" : datetime.now})
-    interval: str = Field(default_factory=lambda: json.dumps([td.total_seconds() for td in default_pond_intervals]))
+    intervals: str = Field(default_factory=lambda: json.dumps([td.total_seconds() for td in default_pond_intervals]))
 
     user: Optional["User"] = Relationship(back_populates='ponds')
     fishes: List["Fish"] = Relationship(back_populates='pond')
