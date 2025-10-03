@@ -3,7 +3,7 @@ import random
 import hashlib
 import os
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, Request, Response, HTTPException, status, Depends
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, TYPE_CHECKING
@@ -114,9 +114,9 @@ def get_fishes_by_pond_id(pond_id: str, is_ready: Optional[bool] = None,
         fish_select = fish_select.where(Fish.pond_id == pond_id)
         if is_ready is not None:
             if is_ready:
-                fish_select = fish_select.where(Fish.next_review_date <= datetime.now())
+                fish_select = fish_select.where(Fish.next_review_date <= datetime.now(timezone.utc))
             else:
-                fish_select = fish_select.where(Fish.next_review_date > datetime.now())
+                fish_select = fish_select.where(Fish.next_review_date > datetime.now(timezone.utc))
         if depth_level is not None:
             fish_select = fish_select.where(Fish.depth_level == depth_level)
         result = session.execute(fish_select)
@@ -213,8 +213,8 @@ def create_pond(cr_pond: PondCreate, cur_user: User = Depends(get_user_from_toke
         name=cr_pond.name,
         description=cr_pond.description,
         topic=cr_pond.topic,
-        created_at=datetime.now(),
-        updated_at=datetime.now()
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc)
     )
 
     intervals = [timedelta(days=i.days, hours=i.hours, minutes=i.minutes) for i in cr_pond.intervals]
@@ -292,10 +292,10 @@ def get_fishes(fish_status: Optional[str] = None, depth_level: Optional[int] = N
 
 @app.post("/ponds/{pond_id}/fish", response_model=Fish)
 def create_fish(fish_data: FishCreate, pond: Pond = Depends(get_pond_with_check_rights)):
+    # print("\n", pond.get_intervals(), "\n")
     fish_list = create_fishes({fish_data.question: fish_data.answer}, pond)
 
     return fish_list[0]
-
 
 class FishesCreate(BaseModel):
     fishes: Dict[str, str]
@@ -311,9 +311,9 @@ def create_fishes(fishes_data: Dict[str, str], pond: Pond = Depends(get_pond_wit
                 question=fish_data[0],
                 answer=fish_data[1],
                 depth_level=0,
-                next_review_date=datetime.now() + pond.get_intervals()[0],
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                next_review_date=datetime.now(timezone.utc) + pond.get_intervals()[0],
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             session.add(new_fish)
             session.commit()
@@ -386,8 +386,7 @@ def update_caught_fish(quality: int, fish: Fish = Depends(get_fish_with_check_ri
             fish.depth_level = 0
         elif fish.depth_level > 3:
             fish.depth_level = 3
-        print('\n', datetime.now(), pond.get_intervals()[fish.depth_level], '\n')
-        fish.next_review_date = datetime.now() + pond.get_intervals()[fish.depth_level]
+        fish.next_review_date = datetime.now(timezone.utc) + pond.get_intervals()[fish.depth_level]
 
         # if quality >= 3:
         #     if fish.repetitions == 0:
@@ -403,7 +402,7 @@ def update_caught_fish(quality: int, fish: Fish = Depends(get_fish_with_check_ri
         #     fish.interval = 1
         #     fish.ease_factor = max(1.3, fish.ease_factor - 0.2)
 
-        # fish.next_review_date = datetime.now() + timedelta(days=fish.interval)
+        # fish.next_review_date = datetime.now(timezone.utc) + timedelta(days=fish.interval)
         # if fish.repetitions == 0:
         #     fish.depth_level = 1
         # elif fish.repetitions < 4:
