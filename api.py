@@ -48,7 +48,6 @@ class PondCreate(BaseModel):
 class FishCreate(BaseModel):
     question: str
     answer: str
-    depth_level: int
 
 
 def get_user_from_token(request: Request) -> User:
@@ -199,6 +198,8 @@ def change_pond(cr_pond: PondCreate, pond: Pond = Depends(get_pond_with_check_ri
         pond = session.get(Pond, pond.id)
         pond.name = cr_pond.name
         pond.description = cr_pond.description
+        intervals = [timedelta(days=i.days, hours=i.hours, minutes=i.minutes) for i in cr_pond.intervals]
+        pond.set_intervals(intervals)
         session.commit()
         session.refresh(pond)
 
@@ -291,21 +292,9 @@ def get_fishes(fish_status: Optional[str] = None, depth_level: Optional[int] = N
 
 @app.post("/ponds/{pond_id}/fish", response_model=Fish)
 def create_fish(fish_data: FishCreate, pond: Pond = Depends(get_pond_with_check_rights)):
-    new_fish = Fish(
-        pond_id=str(pond.id),
-        question=fish_data.question,
-        answer=fish_data.answer,
-        depth_level=fish_data.depth_level,
-        next_review_date=datetime.now(),
-        created_at=datetime.now(),
-        updated_at=datetime.now()
-    )
-    with Session(engine) as session:
-        session.add(new_fish)
-        session.commit()
-        session.refresh(new_fish)
+    fish_list = create_fishes({fish_data.question: fish_data.answer}, pond)
 
-    return new_fish
+    return fish_list[0]
 
 
 class FishesCreate(BaseModel):
@@ -315,9 +304,21 @@ class FishesCreate(BaseModel):
 @app.post("/ponds/{pond_id}/fishes", response_model=List[Fish])
 def create_fishes(fishes_data: Dict[str, str], pond: Pond = Depends(get_pond_with_check_rights)):
     created_fishes = []
-    for fish_data in fishes_data.items():
-        fish_data1 = FishCreate(question=fish_data[0], answer=fish_data[1], depth_level=0)
-        created_fishes.append(create_fish(fish_data1, pond))
+    with Session(engine) as session:
+        for fish_data in fishes_data.items():
+            new_fish = Fish(
+                pond_id=str(pond.id),
+                question=fish_data[0],
+                answer=fish_data[1],
+                depth_level=0,
+                next_review_date=datetime.now() + pond.get_intervals()[0],
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+            session.add(new_fish)
+            session.commit()
+            session.refresh(new_fish)
+            created_fishes.append(new_fish)
     
     return created_fishes
 
