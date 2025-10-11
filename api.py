@@ -329,16 +329,19 @@ def create_fishes(fishes_data: Dict[str, str], pond: Pond = Depends(get_pond_wit
     created_fishes = []
     with Session(engine) as session:
         for fish_data in fishes_data.items():
-            created_fishes.append(Fish(
+            new_fish = Fish(
                 pond_id=str(pond.id),
                 question=fish_data[0],
                 answer=fish_data[1],
                 depth_level=0,
                 next_review_date=datetime.now(timezone.utc) + pond.get_intervals()[0]
-            ))
-            session.add(created_fishes[-1])
-            session.commit()
-            session.refresh(created_fishes[-1])
+            )
+            session.add(new_fish)
+            session.refresh(new_fish)
+
+        session.commit()
+        for fish in created_fishes:
+            session.refresh(fish)
     
     return created_fishes
 
