@@ -28,6 +28,8 @@ class Pond(SQLModel, table=True):
     created_at: datetime = Field(default_factory=get_current_utc_datetime)
     updated_at: datetime = Field(default_factory=get_current_utc_datetime, sa_column_kwargs={"onupdate" : get_current_utc_datetime})
     intervals: str = Field(default_factory=lambda: json.dumps([td.total_seconds() for td in default_pond_intervals]))
+    cnt_fishes: int = Field(default=0)
+    cnt_ready_fishes: int = Field(default=0)
 
     user: Optional["User"] = Relationship(back_populates='ponds')
     fishes: List["Fish"] = Relationship(back_populates='pond')

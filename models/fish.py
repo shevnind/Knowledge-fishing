@@ -17,12 +17,10 @@ class Fish(SQLModel, table=True):
     pond_id: str = Field(foreign_key='pond.id')
     question: str = Field(max_length=1024)
     answer: str = Field(max_length=1024)
-    interval: int = Field(default=0)
     repetitions: int = Field(default=0)
-    ease_factor: float = Field(default=2.5)
     next_review_date: datetime = Field(default_factory=get_current_utc_datetime)
     created_at: datetime = Field(default_factory=get_current_utc_datetime)
-    updated_at: datetime = Field(default_factory=get_current_utc_datetime, sa_column_kwargs={"onupdate": get_current_utc_datetime})
+    updated_at: datetime = Field(default_factory=get_current_utc_datetime)
     depth_level: int = Field(default=0)
 
     pond: Optional["Pond"] = Relationship(back_populates='fishes')

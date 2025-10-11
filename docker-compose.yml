@@ -6,8 +6,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - database_data:/data/database.db
+      - data:/data/database.db
     restart: unless-stopped
 
 volumes:
-  database_data:
+  data:

@@ -18,7 +18,5 @@ RUN pip install -r requirements.txt
 RUN mkdir build
 COPY --from=frontend /frontend/build ./build
 
-RUN mkdir -p /data
-
 EXPOSE 8000
 CMD ["python3", "main.py"]
