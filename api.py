@@ -337,7 +337,7 @@ def create_fishes(fishes_data: Dict[str, str], pond: Pond = Depends(get_pond_wit
                 next_review_date=datetime.now(timezone.utc) + pond.get_intervals()[0]
             )
             session.add(new_fish)
-            session.refresh(new_fish)
+            created_fishes.append(new_fish)
 
         session.commit()
         for fish in created_fishes:
