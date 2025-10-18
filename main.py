@@ -22,7 +22,7 @@ if __name__ == "__main__":
         keyfile_index = sys.argv.index("--ssl-keyfile") + 1
         # certfile = sys.argv[certfile_index]
         # keyfile = sys.argv[keyfile_index]
-        certfile = os.path.join("ssl/cert.pem")
+        certfile = os.path.join("ssl/combined.pem")
         keyfile = os.path.join("ssl/private.key")
         
         # Создаем SSL контекст
