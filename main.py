@@ -20,8 +20,10 @@ if __name__ == "__main__":
     if ssl_enabled:
         certfile_index = sys.argv.index("--ssl-certfile") + 1
         keyfile_index = sys.argv.index("--ssl-keyfile") + 1
-        certfile = sys.argv[certfile_index]
-        keyfile = sys.argv[keyfile_index]
+        # certfile = sys.argv[certfile_index]
+        # keyfile = sys.argv[keyfile_index]
+        certfile = os.path.join("ssl/cert.pem")
+        keyfile = os.path.join("ssl/private.key")
         
         # Создаем SSL контекст
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
