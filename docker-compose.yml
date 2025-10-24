@@ -4,9 +4,11 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      - "80:8000"
+      - "443:443"
     volumes:
-      - data:/data/database.db
+      - data:/data
+      - ssl:/backend/ssl
     restart: unless-stopped
 
 volumes:
