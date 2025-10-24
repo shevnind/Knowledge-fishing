@@ -8,7 +8,6 @@ services:
       - "443:443"
     volumes:
       - data:/data
-      - ssl:/backend/ssl
     restart: unless-stopped
 
 volumes:
