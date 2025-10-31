@@ -87,6 +87,23 @@ def get_pond_with_check_rights(pond_id: str, cur_user: User = Depends(get_user_f
     return pond
 
 
+def update_fish(fish: Fish) -> Fish:
+    return update_fishes([fish])[0]
+
+
+def update_fishes(fishes: List[Fish]) -> List[Fish]:
+    with Session(engine) as session:
+        for i in range(len(fishes)):
+            fishes[i] = session.get(Fish, fishes[i].id)
+            fishes[i].ready = (fishes[i].next_review_date.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc))
+            
+        session.commit()
+        for i in range (len(fishes)):
+            session.refresh(fishes[i])
+
+    return fishes
+
+
 def get_fish_with_check_rights(fish_id: str, cur_user: User = Depends(get_user_from_token)) -> Fish:
     with Session(engine) as session:
         fish = session.get(Fish, fish_id)
@@ -104,7 +121,7 @@ def get_fish_with_check_rights(fish_id: str, cur_user: User = Depends(get_user_f
                 detail='this pond does not belong to the current user'
             )
 
-    return fish
+    return update_fish(fish)
 
 
 def get_fishes_by_pond_id(pond_id: str, is_ready: Optional[bool] = None,
@@ -122,7 +139,7 @@ def get_fishes_by_pond_id(pond_id: str, is_ready: Optional[bool] = None,
         result = session.execute(fish_select)
         fishes = result.scalars().all()
 
-    return fishes
+    return update_fishes(fishes)
 
 
 def correct(s: str):
@@ -203,8 +220,8 @@ def get_ponds(cur_user: User = Depends(get_user_from_token)):
         session.refresh(cur_user, attribute_names=['ponds'])
 
     ponds = cur_user.ponds
-    for pond in ponds:
-        pond = update_pond(pond)
+    for i in range(len(ponds)):
+        ponds[i] = update_pond(ponds[i])
     
     return ponds
 
@@ -223,8 +240,6 @@ def change_pond(cr_pond: PondCreate, pond: Pond = Depends(get_pond_with_check_ri
             fish.next_review_date = fish.updated_at + pond.get_intervals()[fish.depth_level]
             session.commit()
         session.refresh(pond)
-
-    
 
     return pond
 
@@ -334,7 +349,8 @@ def create_fishes(fishes_data: Dict[str, str], pond: Pond = Depends(get_pond_wit
                 question=fish_data[0],
                 answer=fish_data[1],
                 depth_level=0,
-                next_review_date=datetime.now(timezone.utc) + pond.get_intervals()[0]
+                next_review_date=datetime.now(timezone.utc) + pond.get_intervals()[0],
+                ready=(pond.get_intervals()[0] <= timedelta(0))
             )
             session.add(new_fish)
             created_fishes.append(new_fish)
@@ -411,6 +427,7 @@ def update_caught_fish(quality: int, fish: Fish = Depends(get_fish_with_check_ri
             fish.depth_level = 3
         fish.updated_at = datetime.now(timezone.utc)
         fish.next_review_date = datetime.now(timezone.utc) + pond.get_intervals()[fish.depth_level]
+        fish.ready = (pond.get_intervals()[fish.depth_level] <= timedelta(0))
 
         # if quality >= 3:
         #     if fish.repetitions == 0:
