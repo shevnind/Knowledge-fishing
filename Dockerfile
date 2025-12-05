@@ -19,6 +19,8 @@ COPY ssl ./ssl/
 RUN mkdir build
 COPY --from=frontend /frontend/build ./build
 
+ENV DATABASE_PATH = "sqlite:////data/database.db"
+
 EXPOSE 8000
 EXPOSE 443
 CMD ["python3", "main.py"]
