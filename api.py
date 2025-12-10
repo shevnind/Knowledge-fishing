@@ -50,6 +50,15 @@ class FishCreate(BaseModel):
     answer: str
 
 
+class UserData(BaseModel):
+    login: str
+    password: str
+
+
+class UserInfo():
+    login: str
+
+
 def get_user_from_token(request: Request) -> User:
     user_id = request.cookies.get('access_token')
     if not user_id:
@@ -170,16 +179,34 @@ def update_pond(pond: Pond):
     return pond
 
 
+def create_user_with_token(response: Response, user_id: str):
+    with Session(engine) as session:
+        new_user = User()
+
+        session.add(new_user)
+        user_id = new_user.id
+        session.commit()
+
+        response = Response(content=open(BUILD_DIR / "index.html").read())
+        response.set_cookie(
+            key='access_token',
+            value=new_user.id,
+            httponly=True,
+            max_age=100 * 365 * 24 * 60 * 60
+        )
+        return response
+
+
 @app.get("/")
 def start(request: Request, response: Response):
     user_id = request.cookies.get('access_token')
     # print("\nuser_id =", user_id, '\n')
     if not user_id:
-
         with Session(engine) as session:
             new_user = User()
 
             session.add(new_user)
+            user_id = new_user.id
             session.commit()
 
             response = Response(content=open(BUILD_DIR / "index.html").read())
@@ -192,6 +219,73 @@ def start(request: Request, response: Response):
             return response
 
     return FileResponse(BUILD_DIR / "index.html")
+
+
+@app.post("/register")
+def register(reg_data: UserData, request: Request, user: User = Depends(get_user_from_token)):
+    user_info = UserInfo()
+
+    with Session(engine) as session:
+        statement = select(User).where(User.login == reg_data.login)
+        user_with_this_login = session.exec(statement).first()
+        if user_with_this_login is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='login are already existed'
+            )
+        
+        user = session.get(User, user.id)
+        user.login = reg_data.login
+        user.hashed_password = User.hash_password(reg_data.password)
+        session.commit()
+        user_info.login = reg_data.login
+
+    return user_info
+
+
+
+@app.post("/login")
+def login(login_data: UserData, response: Response):
+    user_info = UserInfo()
+
+    with Session(engine) as session:
+        statement = select(User).where(User.login == login_data.login)
+        user_with_this_login = session.exec(statement).first()
+        if user_with_this_login is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='there is no user with this login'
+            )
+
+        if not user_with_this_login.check_password(login_data.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='incorrect password'
+            )
+
+        for pond in get_ponds(user_with_this_login):
+            pond = session.get(Pond, pond.id)
+            pond.user_id = user_with_this_login.id
+            session.commit()
+
+        response.set_cookie(
+            key='access_token',
+            value=user_with_this_login.id,
+            httponly=True,
+            max_age=100 * 365 * 24 * 60 * 60
+        )
+        user_info.login = login_data.login
+
+    return user_info
+
+
+@app.post("/logout")
+def logout(response: Response, user: User = Depends(get_user_from_token)):
+    response.set_cookie(
+        key='access_token',
+        httponly=True,
+        max_age=0
+    )
 
 
 class Password(BaseModel):
