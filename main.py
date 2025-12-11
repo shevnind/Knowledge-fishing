@@ -27,7 +27,7 @@ if __name__ == "__main__":
         app, 
         host="0.0.0.0",
         port=443,  # HTTPS порт
-        ssl_keyfile="../ssl/certificate.key",
-        ssl_certfile="../ssl/certificate.crt",
-        ssl_ca_certs="../ssl/certificate_ca.crt"  # опционально
+        ssl_keyfile="/ssl/certificate.key",
+        ssl_certfile="/ssl/certificate.crt",
+        ssl_ca_certs="/ssl/certificate_ca.crt"  # опционально
     )
