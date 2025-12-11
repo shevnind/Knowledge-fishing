@@ -3,30 +3,31 @@ from api import app
 import ssl
 from http.server import HTTPServer
 
-from database import create_table
+from database import create_table, sqlite_url
 
 
 if __name__ == "__main__":
+    print("\n\n\n\n\n\n", sqlite_url, "\n\n\n\n\n\n")
     create_table()
 
     import uvicorn
 
     # localhost:8443
 
-    uvicorn.run(
-        app, 
-        host="127.0.0.1",
-        port=8000,  # HTTPS порт
-        # ssl_keyfile="../ssl/certificate.key",
-        # ssl_certfile="../ssl/certificate.crt",
-        # ssl_ca_certs="../ssl/certificate_ca.crt"  # опционально
-    )
-
     # uvicorn.run(
     #     app, 
-    #     host="0.0.0.0",
-    #     port=443,  # HTTPS порт
-    #     ssl_keyfile="../ssl/certificate.key",
-    #     ssl_certfile="../ssl/certificate.crt",
-    #     ssl_ca_certs="../ssl/certificate_ca.crt"  # опционально
+    #     host="127.0.0.1",
+    #     port=8000,  # HTTPS порт
+    #     # ssl_keyfile="../ssl/certificate.key",
+    #     # ssl_certfile="../ssl/certificate.crt",
+    #     # ssl_ca_certs="../ssl/certificate_ca.crt"  # опционально
     # )
+
+    uvicorn.run(
+        app, 
+        host="0.0.0.0",
+        port=443,  # HTTPS порт
+        ssl_keyfile="../ssl/certificate.key",
+        ssl_certfile="../ssl/certificate.crt",
+        ssl_ca_certs="../ssl/certificate_ca.crt"  # опционально
+    )
