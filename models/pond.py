@@ -30,6 +30,7 @@ class Pond(SQLModel, table=True):
     intervals: str = Field(default_factory=lambda: json.dumps([td.total_seconds() for td in default_pond_intervals]))
     cnt_fishes: int = Field(default=0)
     cnt_ready_fishes: int = Field(default=0)
+    public: bool = Field(default=False)
 
     user: Optional["User"] = Relationship(back_populates='ponds')
     fishes: List["Fish"] = Relationship(back_populates='pond')

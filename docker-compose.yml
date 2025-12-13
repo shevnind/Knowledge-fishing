@@ -8,7 +8,9 @@ services:
       - "443:443"
     volumes:
       - data:/data
+      - ssl:/ssl:ro
     restart: unless-stopped
 
 volumes:
   data:
+  ssl:

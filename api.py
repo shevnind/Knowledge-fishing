@@ -17,6 +17,7 @@ from models.user import User
 from models.fish import Fish
 from models.pond import Pond
 from models.fishing_session import FishingSession
+from models.feedback import FeedBack
 from database import engine
 from ai import ai_chatbot
 
@@ -57,6 +58,15 @@ class UserData(BaseModel):
 
 class UserInfo():
     login: str
+
+
+class Password(BaseModel):
+    password: str
+
+
+class FeedBackInput(BaseModel):
+    type: str
+    text: str
 
 
 def get_user_from_token(request: Request) -> User:
@@ -243,7 +253,6 @@ def register(reg_data: UserData, request: Request, user: User = Depends(get_user
     return user_info
 
 
-
 @app.post("/login")
 def login(login_data: UserData, response: Response):
     user_info = UserInfo()
@@ -288,8 +297,16 @@ def logout(response: Response, user: User = Depends(get_user_from_token)):
     )
 
 
-class Password(BaseModel):
-    password: str
+@app.post("/feedback")
+def save_feedback(fb: FeedBackInput, user: User = Depends(get_user_from_token)):
+    with Session(engine) as session:
+        new_feedback = FeedBack(
+            user_id=user.id,
+            type=fb.type,
+            text=fb.text
+        )
+        session.add(new_feedback)
+        session.commit()
 
 
 @app.post("/users")

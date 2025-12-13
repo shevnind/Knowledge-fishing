@@ -13,13 +13,13 @@ RUN git clone --depth 1 https://github.com/shevnind/Knowledge-fishing /backend
 
 WORKDIR /backend
 
-RUN mkdir ssl
-COPY ssl ./ssl/
+RUN mkdir ../ssl
+COPY ssl ../ssl/
 
 RUN mkdir build
 COPY --from=frontend /frontend/build ./build
 
-ENV DATABASE_PATH="../data/database.db"
+ENV DATABASE_PATH /data/database.db
 
 EXPOSE 8000
 EXPOSE 443
