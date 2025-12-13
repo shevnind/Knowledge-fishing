@@ -254,7 +254,7 @@ def register(reg_data: UserData, request: Request, user: User = Depends(get_user
 
 
 @app.post("/login")
-def login(login_data: UserData, response: Response):
+def login(login_data: UserData, response: Response, request: Request):
     user_info = UserInfo()
 
     with Session(engine) as session:
@@ -272,10 +272,14 @@ def login(login_data: UserData, response: Response):
                 detail='incorrect password'
             )
 
-        for pond in get_ponds(user_with_this_login):
-            pond = session.get(Pond, pond.id)
-            pond.user_id = user_with_this_login.id
-            session.commit()
+        try:
+            user = get_user_from_token(request)
+            for pond in get_ponds(user):
+                pond = session.get(Pond, pond.id)
+                pond.user_id = user_with_this_login.id
+                session.commit()
+        except HTTPException:
+            print('there is no token into cookies')
 
         response.set_cookie(
             key='access_token',
