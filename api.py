@@ -211,6 +211,7 @@ def create_user_with_token(response: Response, user_id: str):
 def start(request: Request, response: Response):
     user_id = request.cookies.get('access_token')
     # print("\nuser_id =", user_id, '\n')
+    
     if not user_id:
         with Session(engine) as session:
             new_user = User()
@@ -227,6 +228,14 @@ def start(request: Request, response: Response):
                 max_age=100 * 365 * 24 * 60 * 60
             )
             return response
+    else:
+        with Session(engine) as session:
+            user = session.get(User, user_id)
+            if not user:
+                new_user = User(id=user_id)
+                session.add(new_user)
+                user_id = new_user.id
+                session.commit()
 
     return FileResponse(BUILD_DIR / "index.html")
 
