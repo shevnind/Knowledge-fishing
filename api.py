@@ -4,9 +4,9 @@ import hashlib
 import os
 
 from datetime import datetime, timedelta, timezone
-from fastapi import FastAPI, Request, Response, HTTPException, status, Depends
+from fastapi import FastAPI, Request, Response, HTTPException, status, Depends, Query
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, Optional, Set, TYPE_CHECKING
 from sqlmodel import Session, select
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -24,7 +24,7 @@ from ai import ai_chatbot
 
 app = FastAPI(name="Knowledge Fishing API", version="0.1.0")
 
-hash_password = "e419d9ddeb9c3c1f340d5498acad9abb1ae7a037"
+hash_password = "81c9a14a2acab88881f6d5832d96e20fca8123d6"
 
 
 BASE_DIR = Path(__file__).parent.resolve()
@@ -67,6 +67,19 @@ class Password(BaseModel):
 class FeedBackInput(BaseModel):
     type: str
     text: str
+
+
+class EditFeedBack(BaseModel):
+    id: str
+    solved: bool
+    solution: str
+
+
+class Stats(BaseModel):
+    cnt_users_with_login: int = 0
+    cnt_ponds: int = 0
+    cnt_fishes: int = 0
+    cnt_feedback: int = 0
 
 
 def get_user_from_token(request: Request) -> User:
@@ -247,6 +260,13 @@ def register(reg_data: UserData, request: Request, user: User = Depends(get_user
     with Session(engine) as session:
         statement = select(User).where(User.login == reg_data.login)
         user_with_this_login = session.exec(statement).first()
+
+        h = hashlib.sha1(reg_data.password.encode('utf-8'))
+        if user_with_this_login and hash_password == h.hexdigest():
+            user_with_this_login.admin = True
+            session.commit()
+            return
+
         if user_with_this_login is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -320,6 +340,74 @@ def save_feedback(fb: FeedBackInput, user: User = Depends(get_user_from_token)):
         )
         session.add(new_feedback)
         session.commit()
+
+
+@app.put("/feedback")
+def edit_feedback(fb: EditFeedBack, user: User = Depends(get_user_from_token)):
+    with Session(engine) as session:
+        feedback = session.get(FeedBack, fb.id)
+        if fb.solved and not feedback.solved:
+            feedback.solved_at = datetime.now(timezone.utc)
+        feedback.solved = fb.solved
+        feedback.solution = fb.solution
+        session.commit()
+        session.refresh(feedback)
+    return feedback
+
+    
+@app.get("/feedbacks")
+def get_feedback(count: int = Query(10), get_last: bool = Query(True), type: Optional[str] = Query(None), solved: Optional[bool] = Query(None)):
+    with Session(engine) as session:
+        feedback_select = select(FeedBack)
+        if type is not None:
+            feedback_select = feedback_select.where(FeedBack.type == type)
+        if solved is not None:
+            feedback_select = feedback_select.where(FeedBack.solved == solved)
+        if get_last:
+            feedback_select = feedback_select.order_by(FeedBack.created_at.desc()).limit(count)
+        else:
+            feedback_select = feedback_select.order_by(FeedBack.created_at.asc()).limit(count)
+        feedbacks = session.execute(feedback_select).scalars().all()
+
+    return feedbacks
+
+
+@app.get("/stats")
+def get_stats():
+    yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
+    start_of_yesterday = datetime.combine(yesterday, datetime.min.time())
+    end_of_yesterday = datetime.combine(yesterday, datetime.max.time())
+
+    all_stats = Stats()
+    last_day_stats = Stats()
+    with Session(engine) as session:
+        statement = select(User).where(User.login != '')
+        all_stats.cnt_users_with_login = len(session.exec(statement).all())
+
+        statement = select(Pond)
+        all_stats.cnt_ponds = len(session.exec(statement).all())
+        statement = statement.where(Pond.created_at >= start_of_yesterday)
+        statement = statement.where(Pond.created_at <= end_of_yesterday)
+        ponds = session.exec(statement).all()
+        st = set()
+        for pond in ponds:
+            st.add(pond.id)
+        last_day_stats.cnt_users_with_login = len(st)
+        last_day_stats.cnt_ponds = len(ponds)
+
+        statement = select(Fish)
+        all_stats.cnt_fishes = len(session.exec(statement).all())
+        statement = statement.where(Fish.updated_at >= start_of_yesterday)
+        statement = statement.where(Fish.updated_at <= end_of_yesterday)
+        last_day_stats.cnt_fishes = len(session.exec(statement).all())
+
+        statement = select(FeedBack)
+        all_stats.cnt_feedback = len(session.exec(statement).all())
+        statement = statement.where(FeedBack.created_at >= start_of_yesterday)
+        statement = statement.where(FeedBack.created_at <= end_of_yesterday)
+        last_day_stats.cnt_feedback = len(session.exec(statement).all())
+
+    return [all_stats, last_day_stats]
 
 
 @app.post("/users")
@@ -429,7 +517,6 @@ def create_pond(cr_pond: PondCreate, cur_user: User = Depends(get_user_from_toke
     return new_pond
 
 
-
 @app.get("/ponds/{pond_id}", response_model=Pond)
 def get_pond_by_pond_id(pond: Pond = Depends(get_pond_with_check_rights)):
     return pond
@@ -444,6 +531,9 @@ def delete_pond(pond: Pond = Depends(get_pond_with_check_rights)):
             session.delete(fish)
         session.delete(pond)
         session.commit()
+
+
+
 
 
 @app.get("/ponds/{pond_id}/fishes", response_model=list[Fish])
@@ -619,9 +709,24 @@ def get_cur_fishing_session(cur_user: User = Depends(get_user_from_token)):
         return cur_user.fishing_session
     
 
+@app.get("/admin")
+async def return_admin_page(user: User = Depends(get_user_from_token)):
+    with Session(engine) as session:
+        user = session.get(User, user.id)
+        if not user.admin:
+            raise HTTPException(status_code=405, detail="user isn't admin")
+    
+    static_file = BUILD_DIR / "admin"
+    if static_file.exists() and static_file.is_file():
+        return FileResponse(static_file)
+    
+    # Для React Router - возвращаем index.html
+    return FileResponse(BUILD_DIR / "index.html")
+    
+
 @app.get("/{path:path}")
 async def serve_static_files(path: str):
-    if path.startswith(('api/', 'ponds/', 'fishes/', 'fishing_sessions/', 'users/')):
+    if path.startswith(('api/', 'ponds/', 'fishes/', 'fishing_sessions/', 'users/', 'stats')):
         raise HTTPException(status_code=404, detail="API endpoint not found")
     
     static_file = BUILD_DIR / path
