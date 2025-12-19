@@ -9,4 +9,3 @@ sqlmodel==0.0.24
 uvicorn==0.35.0
 passlib==1.7.4
 bcrypt==4.1.2
-sqlite==3.50.4
