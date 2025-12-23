@@ -42,6 +42,7 @@ class PondCreate(BaseModel):
     description: str
     topic: str
     intervals: List[Interval]
+    is_public: bool
     ai_request: Optional[str] = Field(default=None)
     ai_cnt: Optional[int] = Field(default=20)
 
@@ -446,6 +447,7 @@ def change_pond(cr_pond: PondCreate, pond: Pond = Depends(get_pond_with_check_ri
         pond.description = cr_pond.description
         intervals = [timedelta(days=i.days, hours=i.hours, minutes=i.minutes) for i in cr_pond.intervals]
         pond.set_intervals(intervals)
+        pond.public = cr_pond.is_public
         session.commit()
         session.refresh(pond)
         for fish in pond.fishes:
@@ -464,7 +466,8 @@ def create_pond(cr_pond: PondCreate, cur_user: User = Depends(get_user_from_toke
         description=cr_pond.description,
         topic=cr_pond.topic,
         created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc)
+        updated_at=datetime.now(timezone.utc),
+        public=cr_pond.is_public
     )
 
     intervals = [timedelta(days=i.days, hours=i.hours, minutes=i.minutes) for i in cr_pond.intervals]
