@@ -535,6 +535,21 @@ def delete_pond(pond: Pond = Depends(get_pond_with_check_rights)):
         session.delete(pond)
         session.commit()
 
+    
+@app.get("/public_ponds")
+def get_public_ponds(page: int = Query(1), per_page: int = Query(10), theme: Optional[str] = Query(None), query: Optional[str] = Query(None)):
+    with Session(engine) as session:
+        public_ponds_select = select(Pond).where(Pond.public == True)
+        if theme is not None:
+            public_ponds_select = public_ponds_select.where(Pond.topic == theme)
+        # if query is not None:
+        #     public_ponds_select = TODO
+        public_ponds_select = public_ponds_select.order_by(Pond.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
+        
+        public_ponds = session.execute(public_ponds_select).scalars().all()
+
+    return public_ponds
+
 
 
 
