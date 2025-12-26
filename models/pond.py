@@ -3,6 +3,7 @@ import json
 
 from typing import Optional, TYPE_CHECKING, List
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from sqlmodel import SQLModel, Field, ForeignKey, Relationship
 
 if TYPE_CHECKING:
@@ -10,6 +11,12 @@ if TYPE_CHECKING:
 
 if TYPE_CHECKING:
     from models.fish import Fish
+
+
+class PondType(Enum):
+    OWN = 0
+    COPIED = 1
+    COPIED_WITH_UPDATE = 2
 
 
 default_pond_intervals = [timedelta(hours=1), timedelta(days=1), timedelta(days=7), timedelta(days=30)]
@@ -31,6 +38,8 @@ class Pond(SQLModel, table=True):
     cnt_fishes: int = Field(default=0)
     cnt_ready_fishes: int = Field(default=0)
     public: bool = Field(default=False)
+    pond_type: int = Field(default=0)
+    cnt_copied: int = Field(default=0)
 
     user: Optional["User"] = Relationship(back_populates='ponds')
     fishes: List["Fish"] = Relationship(back_populates='pond')
