@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, Response, HTTPException, status, Depends, 
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Set, TYPE_CHECKING
 from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,6 +82,11 @@ class Stats(BaseModel):
     cnt_ponds: int = 0
     cnt_fishes: int = 0
     cnt_feedback: int = 0
+
+
+class PublicPondResponse(BaseModel):
+    pond: Pond
+    user_login: str
 
 
 def get_user_from_token(request: Request) -> User:
@@ -542,13 +548,24 @@ def get_public_ponds(page: int = Query(1), per_page: int = Query(10), theme: Opt
         public_ponds_select = select(Pond).where(Pond.public == True)
         if theme is not None:
             public_ponds_select = public_ponds_select.where(Pond.topic == theme)
-        # if query is not None:
-        #     public_ponds_select = TODO
+        if query is not None: #TODO
+            public_ponds_select = public_ponds_select.where(
+                or_(
+                    Pond.name.ilike(f"%{query}%"),
+                    Pond.description.ilike(f"%{query}%"),
+                    Pond.topic.ilike(f"%{query}%")
+                )
+            )
         public_ponds_select = public_ponds_select.order_by(Pond.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
+        public_ponds_select = public_ponds_select.options(selectinload(Pond.user))
         
-        public_ponds = session.execute(public_ponds_select).scalars().all()
+        public_ponds = session.exec(public_ponds_select).all()
 
-    return public_ponds
+        result = []
+        for pond in public_ponds:
+            result.append(PublicPondResponse(pond=pond, user_login=pond.user.login))
+
+    return result
 
 
 
