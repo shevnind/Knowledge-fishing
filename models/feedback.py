@@ -8,8 +8,8 @@ from sqlmodel import SQLModel, Field, ForeignKey, Relationship
 if TYPE_CHECKING:
     from models.user import User
 
-def get_current_utc_datetime():
-    return datetime.now(timezone.utc)
+def get_current_datetime():
+    return datetime.now()
 
 
 class FeedBack(SQLModel, table=True):
@@ -17,7 +17,7 @@ class FeedBack(SQLModel, table=True):
     user_id: str = Field(foreign_key='user.id')
     type: str = Field()
     text: str = Field()
-    created_at: datetime = Field(default_factory=get_current_utc_datetime)
+    created_at: datetime = Field(default_factory=get_current_datetime)
     solved_at: datetime = Field(default=datetime(1970, 1, 1))
     solved: bool = Field(default=False)
     solution: str = Field(default="")

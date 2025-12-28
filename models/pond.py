@@ -40,6 +40,8 @@ class Pond(SQLModel, table=True):
     public: bool = Field(default=False)
     pond_type: int = Field(default=0)
     cnt_copied: int = Field(default=0)
+    copied_from_id: str = Field(nullable=True)
+    last_update_from_original: datetime = Field(default_factory=get_current_utc_datetime)
 
     user: Optional["User"] = Relationship(back_populates='ponds')
     fishes: List["Fish"] = Relationship(back_populates='pond')

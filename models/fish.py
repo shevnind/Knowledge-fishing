@@ -8,8 +8,8 @@ if TYPE_CHECKING:
     from models.pond import Pond
 
 
-def get_current_utc_datetime():
-    return datetime.now(timezone.utc)
+def get_current_datetime():
+    return datetime.now()
 
 
 class Fish(SQLModel, table=True):
@@ -18,9 +18,9 @@ class Fish(SQLModel, table=True):
     question: str = Field(max_length=1024)
     answer: str = Field(max_length=1024)
     repetitions: int = Field(default=0)
-    next_review_date: datetime = Field(default_factory=get_current_utc_datetime)
-    created_at: datetime = Field(default_factory=get_current_utc_datetime)
-    updated_at: datetime = Field(default_factory=get_current_utc_datetime)
+    next_review_date: datetime = Field(default_factory=get_current_datetime)
+    created_at: datetime = Field(default_factory=get_current_datetime)
+    updated_at: datetime = Field(default_factory=get_current_datetime)
     depth_level: int = Field(default=0)
     ready: bool = Field(default=False)
 
