@@ -204,6 +204,7 @@ def correct(s: str):
 def update_pond(pond: Pond):
     if pond.pond_type == PondType.COPIED_WITH_UPDATE.value:
         with Session(engine) as session:
+            pond = session.get(Pond, pond.id)
             origin_pond_select = select(Pond).where(Pond.id == pond.copied_from_id).options(selectinload(Pond.fishes))
             origin_pond = session.exec(origin_pond_select).first()
             # print(origin_pond)
@@ -222,7 +223,9 @@ def update_pond(pond: Pond):
                         )
                         new_fishes.append(new_fish)
                 session.add_all(new_fishes)
+                pond.last_update_from_original = datetime.now()
                 session.commit()
+                session.refresh(pond)
 
     cnt_fishes = len(get_fishes_by_pond_id(pond.id))
     cnt_ready_fishes = len(get_fishes_by_pond_id(pond.id, is_ready=True))
