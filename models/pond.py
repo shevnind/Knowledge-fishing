@@ -22,8 +22,8 @@ class PondType(Enum):
 default_pond_intervals = [timedelta(hours=1), timedelta(days=1), timedelta(days=7), timedelta(days=30)]
 
 
-def get_current_utc_datetime():
-    return datetime.now(timezone.utc)
+def get_current_datetime():
+    return datetime.now()
 
 
 class Pond(SQLModel, table=True):
@@ -32,8 +32,8 @@ class Pond(SQLModel, table=True):
     name: str = Field(max_length=128)
     description: str = Field(max_length=1024)
     topic: str = Field(max_length=128)
-    created_at: datetime = Field(default_factory=get_current_utc_datetime)
-    updated_at: datetime = Field(default_factory=get_current_utc_datetime, sa_column_kwargs={"onupdate" : get_current_utc_datetime})
+    created_at: datetime = Field(default_factory=get_current_datetime)
+    updated_at: datetime = Field(default_factory=get_current_datetime, sa_column_kwargs={"onupdate" : get_current_datetime})
     intervals: str = Field(default_factory=lambda: json.dumps([td.total_seconds() for td in default_pond_intervals]))
     cnt_fishes: int = Field(default=0)
     cnt_ready_fishes: int = Field(default=0)
@@ -41,7 +41,8 @@ class Pond(SQLModel, table=True):
     pond_type: int = Field(default=0)
     cnt_copied: int = Field(default=0)
     copied_from_id: str = Field(nullable=True)
-    last_update_from_original: datetime = Field(default_factory=get_current_utc_datetime)
+    last_update_from_original: datetime = Field(default_factory=get_current_datetime)
+    public_url_suffix: str = Field(nullable=True)
 
     user: Optional["User"] = Relationship(back_populates='ponds')
     fishes: List["Fish"] = Relationship(back_populates='pond')

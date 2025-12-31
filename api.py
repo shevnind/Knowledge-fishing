@@ -21,6 +21,7 @@ from models.fishing_session import FishingSession
 from models.feedback import FeedBack
 from database import engine
 from ai import ai_chatbot
+from helper import prepare_str_for_url
 
 
 app = FastAPI(name="Knowledge Fishing API", version="0.1.0")
@@ -236,6 +237,33 @@ def update_pond(pond: Pond):
         session.commit()
         session.refresh(pond)
     
+    return pond
+
+
+def choose_public_url(pond: Pond):
+    if pond.public_url_suffix is not None:
+        return pond
+    
+    with Session(engine) as session:
+        pond_select = select(Pond).where(Pond.id == pond.id).options(selectinload(Pond.user))
+        pond = session.exec(pond_select).first()
+        suffix = f'{prepare_str_for_url(pond.user.login)}/{prepare_str_for_url(pond.name)}'
+
+        url_select = select(Pond.public_url_suffix).where(Pond.public_url_suffix.like(f"{suffix}%"))
+        existing_url = set(session.exec(url_select).all())
+        
+        if suffix in existing_url:
+            i = 1
+            while True:
+                if f"${suffix}${str(i)}" in existing_url:
+                    i += 1
+                else:
+                    suffix += str(i)
+                    break;
+        
+        pond.public_url_suffix = suffix
+        session.commit()
+        session.refresh(pond)
     return pond
 
 
@@ -477,6 +505,9 @@ def get_ponds(cur_user: User = Depends(get_user_from_token)):
 
 @app.put("/ponds/{pond_id}", response_model=Pond)
 def change_pond(cr_pond: PondCreate, pond: Pond = Depends(get_pond_with_check_rights)):
+    if not pond.public and cr_pond.is_public:
+        pond = choose_public_url(pond)
+    
     with Session(engine) as session:
         pond = session.get(Pond, pond.id)
         pond.name = cr_pond.name
@@ -513,6 +544,9 @@ def create_pond(cr_pond: PondCreate, cur_user: User = Depends(get_user_from_toke
         session.add(new_pond)
         session.commit()
         session.refresh(new_pond)
+    
+    if new_pond.public:
+        new_pond = choose_public_url(new_pond)
 
     print(cr_pond.ai_request, cur_user.admin)
 
