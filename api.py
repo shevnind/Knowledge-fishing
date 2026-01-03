@@ -512,6 +512,7 @@ def change_pond(cr_pond: PondCreate, pond: Pond = Depends(get_pond_with_check_ri
         pond = session.get(Pond, pond.id)
         pond.name = cr_pond.name
         pond.description = cr_pond.description
+        pond.topic = cr_pond.topic
         intervals = [timedelta(days=i.days, hours=i.hours, minutes=i.minutes) for i in cr_pond.intervals]
         pond.set_intervals(intervals)
         pond.public = cr_pond.is_public
