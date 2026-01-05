@@ -90,8 +90,8 @@ class PublicPondResponse(BaseModel):
     user_login: str
 
 
-class CopyPondByIDRequest(BaseModel):
-    id: str
+class CopyPond(BaseModel):
+    identificator: str
     with_update: bool
 
 
@@ -633,45 +633,57 @@ def get_public_ponds(page: int = Query(1), per_page: int = Query(10), theme: Opt
     return result
 
 
-@app.post("/copy_pond_by_id")
-def copy_pond_by_id(pond_data: CopyPondByIDRequest, user: User = Depends(get_user_from_token)):
-    with Session(engine) as session:
-        pond_select = select(Pond).where(Pond.id == pond_data.id).options(selectinload(Pond.fishes))
-        copied_pond = session.exec(pond_select).first()
+def copy_pond(copied_pond: Pond, with_update: bool, user: User, session: Session):
+    new_pond = Pond(
+        user_id=user.id,
+        name=copied_pond.name,
+        description=copied_pond.description,
+        topic=copied_pond.topic,
+        intervals=copied_pond.intervals,
+        cnt_fishes=copied_pond.cnt_fishes,
+        public=False,
+        pond_type=(PondType.COPIED_WITH_UPDATE.value if with_update else PondType.COPIED.value),
+        copied_from_id=copied_pond.id,
+        last_update_from_original=datetime.now()
+    )
+    session.add(new_pond)
+    session.flush()
 
-        new_pond = Pond(
-            user_id=user.id,
-            name=copied_pond.name,
-            description=copied_pond.description,
-            topic=copied_pond.topic,
-            intervals=copied_pond.intervals,
-            cnt_fishes=copied_pond.cnt_fishes,
-            public=False,
-            pond_type=(PondType.COPIED_WITH_UPDATE.value if pond_data.with_update else PondType.COPIED.value),
-            copied_from_id=copied_pond.id,
-            last_update_from_original=datetime.now()
+    new_fishes = list()
+    for fish in copied_pond.fishes:
+        new_fish = Fish(
+            pond_id=new_pond.id,
+            question=fish.question,
+            answer=fish.answer,
+            next_review_date=datetime.now() + new_pond.get_intervals()[0],
+            ready=(new_pond.get_intervals()[0] <= timedelta(0))
         )
-        session.add(new_pond)
-        session.flush()
+        new_fishes.append(new_fish)
+    session.add_all(new_fishes)
 
-        new_fishes = list()
-        for fish in copied_pond.fishes:
-            new_fish = Fish(
-                pond_id=new_pond.id,
-                question=fish.question,
-                answer=fish.answer,
-                next_review_date=datetime.now() + new_pond.get_intervals()[0],
-                ready=(new_pond.get_intervals()[0] <= timedelta(0))
-            )
-            new_fishes.append(new_fish)
-        session.add_all(new_fishes)
-
-        copied_pond.cnt_copied += 1
-        session.commit()
-        session.refresh(new_pond)
+    copied_pond.cnt_copied += 1
+    session.commit()
+    session.refresh(new_pond)
 
     return new_pond
 
+
+@app.post("/copy_pond_by_id")
+def copy_pond_by_id(pond_data: CopyPond, user: User = Depends(get_user_from_token)):
+    with Session(engine) as session:
+        pond_select = select(Pond).where(Pond.id == pond_data.identificator).options(selectinload(Pond.fishes))
+        copied_pond = session.exec(pond_select).first()
+        new_pond = copy_pond(copied_pond, pond_data.with_update, user, session)
+    return new_pond
+
+
+@app.post("/copy_pond_by_public_url")
+def copy_pond_by_public_url(pond_data: CopyPond, user: User = Depends(get_user_from_token)):
+    with Session(engine) as session:
+        pond_select = select(Pond).where(Pond.public_url_suffix == pond_data.identificator).options(selectinload(Pond.fishes))
+        copied_pond = session.exec(pond_select).first()
+        new_pond = copy_pond(copied_pond, pond_data.with_update, user, session)
+    return new_pond
 
 
 @app.get("/ponds/{pond_id}/fishes", response_model=list[Fish])
