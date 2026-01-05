@@ -90,6 +90,12 @@ class PublicPondResponse(BaseModel):
     user_login: str
 
 
+class PondCardResponse(BaseModel):
+    pond: Pond
+    user_login: str
+    fishes: List[Fish]
+
+
 class CopyPond(BaseModel):
     identificator: str
     with_update: bool
@@ -112,6 +118,17 @@ def get_user_from_token(request: Request) -> User:
             )
 
     return user
+
+def get_pond(pond_id: str, cur_user: User = Depends(get_user_from_token)) -> Pond:
+    with Session(engine) as session:
+        pond = session.get(Pond, pond_id)
+        if not pond:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail='there is not pond with this id'
+            )
+
+    return pond
 
 
 def get_pond_with_check_rights(pond_id: str, cur_user: User = Depends(get_user_from_token)) -> Pond:
@@ -596,6 +613,32 @@ def get_pond_by_pond_id(pond: Pond = Depends(get_pond_with_check_rights)):
     return pond
 
 
+@app.get("/ponds/card/{pond_id}", response_model=PondCardResponse)
+def get_pond_by_pond_id(pond_id: str, user: User = Depends(get_user_from_token)):
+    with Session(engine) as session:
+        sel = select(Pond).where(Pond.id == pond_id).options(selectinload(Pond.user), selectinload(Pond.fishes))
+        pond = session.exec(sel).first()
+        resp = PondCardResponse(
+            pond = pond,
+            user_login = pond.user.login,
+            fishes = pond.fishes
+        )
+    return resp
+
+
+@app.get("/ponds/card/{user_login}/{pond_name}", response_model=PondCardResponse)
+def get_pond_by_public_url(user_login: str, pond_name: str, user: User = Depends(get_user_from_token)):
+    with Session(engine) as session:
+        sel = select(Pond).where(Pond.public_url_suffix == f'{user_login}/{pond_name}').options(selectinload(Pond.user), selectinload(Pond.fishes))
+        pond = session.exec(sel).first()
+        resp = PondCardResponse(
+            pond = pond,
+            user_login = pond.user.login,
+            fishes = pond.fishes
+        )
+    return resp
+
+
 @app.delete("/ponds/{pond_id}")
 def delete_pond(pond: Pond = Depends(get_pond_with_check_rights)):
     with Session(engine) as session:
@@ -687,8 +730,8 @@ def copy_pond_by_public_url(pond_data: CopyPond, user: User = Depends(get_user_f
 
 
 @app.get("/ponds/{pond_id}/fishes", response_model=list[Fish])
-def get_fishes(fish_status: Optional[str] = None, depth_level: Optional[int] = None,
-               pond: Pond = Depends(get_pond_with_check_rights)):
+def get_fishes(fish_status: Optional[bool] = None, depth_level: Optional[int] = None,
+               pond: Pond = Depends(get_pond)):
     return get_fishes_by_pond_id(pond.id, fish_status, depth_level)
 
 
