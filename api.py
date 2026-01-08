@@ -7,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, Request, Response, HTTPException, status, Depends, Query
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Set, TYPE_CHECKING
-from sqlmodel import Session, select
-from sqlalchemy.orm import selectinload
+from sqlmodel import Session, select, func, over
+from sqlalchemy.orm import selectinload, aliased
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -653,7 +653,7 @@ def delete_pond(pond: Pond = Depends(get_pond_with_check_rights)):
 @app.get("/public_ponds")
 def get_public_ponds(page: int = Query(1), per_page: int = Query(10), theme: Optional[str] = Query(None), query: Optional[str] = Query(None)):
     with Session(engine) as session:
-        public_ponds_select = select(Pond).where(Pond.public == True)
+        public_ponds_select = select(Pond, func.count().over().label('total_count')).where(Pond.public == True)
         if theme is not None:
             public_ponds_select = public_ponds_select.where(Pond.topic == theme)
         if query is not None: #TODO
@@ -668,12 +668,14 @@ def get_public_ponds(page: int = Query(1), per_page: int = Query(10), theme: Opt
         public_ponds_select = public_ponds_select.options(selectinload(Pond.user))
         
         public_ponds = session.exec(public_ponds_select).all()
-
-        result = []
-        for pond in public_ponds:
-            result.append(PublicPondResponse(pond=pond, user_login=pond.user.login))
-
-    return result
+        if public_ponds:
+            total_count = public_ponds[0].total_count
+            result = []
+            for pond_and_count in public_ponds:
+                result.append(PublicPondResponse(pond=pond_and_count[0], user_login=pond_and_count[0].user.login))
+            return {"total_count": total_count, "ponds": result}
+        else:
+            return {"total_count": 0, "ponds": []}
 
 
 def copy_pond(copied_pond: Pond, with_update: bool, user: User, session: Session):
