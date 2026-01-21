@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, Response, HTTPException, status, Depends, 
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Set, TYPE_CHECKING
 from sqlmodel import Session, select, func, over
+from sqlalchemy import or_
 from sqlalchemy.orm import selectinload, aliased
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -651,11 +652,13 @@ def delete_pond(pond: Pond = Depends(get_pond_with_check_rights)):
 
     
 @app.get("/public_ponds")
-def get_public_ponds(page: int = Query(1), per_page: int = Query(10), theme: Optional[str] = Query(None), query: Optional[str] = Query(None)):
+def get_public_ponds(page: int = Query(1), per_page: int = Query(10), category: Optional[str] = Query(None), author: Optional[str] = Query(None), query: Optional[str] = Query(None)):
     with Session(engine) as session:
         public_ponds_select = select(Pond, func.count().over().label('total_count')).where(Pond.public == True)
-        if theme is not None:
-            public_ponds_select = public_ponds_select.where(Pond.topic == theme)
+        if category is not None:
+            public_ponds_select = public_ponds_select.where(Pond.topic == category)
+        if author is not None:
+            public_ponds_select = public_ponds_select.join(Pond.user).where(User.login == author)
         if query is not None: #TODO
             public_ponds_select = public_ponds_select.where(
                 or_(
