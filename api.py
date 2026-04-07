@@ -31,7 +31,7 @@ hash_password = "81c9a14a2acab88881f6d5832d96e20fca8123d6"
 
 
 BASE_DIR = Path(__file__).parent.resolve()
-BUILD_DIR = BASE_DIR / "build"
+BUILD_DIR = BASE_DIR / ".." / "frontend" / "build"
 
 
 class Interval(BaseModel):
