@@ -10,3 +10,4 @@ uvicorn==0.35.0
 passlib==1.7.4
 bcrypt==4.1.2
 transliterate==1.10.2
+psycopg2-binary==2.9.11
