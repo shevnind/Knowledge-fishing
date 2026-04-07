@@ -3,11 +3,10 @@ from api import app
 import ssl
 from http.server import HTTPServer
 
-from database import create_table, sqlite_url
+from database import create_table
 
 
 if __name__ == "__main__":
-    print("\n\n\n\n\n\n", sqlite_url, "\n\n\n\n\n\n")
     create_table()
 
     import uvicorn
